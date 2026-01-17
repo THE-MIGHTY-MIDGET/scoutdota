@@ -708,11 +708,23 @@ if mode.startswith("Option 1"):
                 st.error(f"Failed to load RD2L page: {e}")
                 st.stop()
 
+            players_meta = []
             roster_ids = set()
+            
             for nm, url in plinks.items():
                 s32 = rd2l_profile_to_steam32(url)
                 if s32 is not None:
-                    roster_ids.add(int(s32))
+                    s32 = int(s32)
+                    roster_ids.add(s32)
+                    players_meta.append({
+                        "name": nm,
+                        "steam32": s32,
+                        "pos": 0,  # 0 means "not set yet" (we'll show as —)
+                    })
+            
+            # Keep a stable order for UI (by name)
+            players_meta = sorted(players_meta, key=lambda x: x["name"].lower())
+
 
             if not roster_ids:
                 warn.append("Could not resolve roster Steam IDs from RD2L profiles. Draft side detection may fail.")
@@ -775,7 +787,7 @@ else:
                 "team_name": "Manual Team",
                 "tournament_label": tournament_label,
                 "roster_ids": roster_ids,
-                "players_meta": manual_players,
+                "players_meta": manual_meta,
                 "df": df,
                 "seq": seq_by_match,
                 "warnings": warn1 + warn2,
@@ -838,23 +850,33 @@ with tabs[2]:
     st.subheader("Player Scout")
 
     # Determine players list: manual has explicit; rd2l mode doesn't (yet).
-    if loaded["mode"] == "rd2l":
-        st.info("RD2L mode: this v1 does not auto-fill player names/positions from RD2L. Use Manual mode for full Player Scout, or add players below.")
-        st.markdown("### Optional: enter players here to run Player Scout")
-        temp_players = []
-        for i in range(5):
-            c1, c2, c3 = st.columns([2, 2, 1])
-            name = c1.text_input(f"ps_name_{i}", placeholder=f"Player {i+1}", label_visibility="collapsed")
-            sid  = c2.text_input(f"ps_sid_{i}", placeholder="Steam32 or Steam64", label_visibility="collapsed")
-            pos  = c3.selectbox(f"ps_pos_{i}", ["—", "1", "2", "3", "4", "5"], label_visibility="collapsed")
-            if name and sid and pos != "—":
-                try:
-                    temp_players.append({"name": name, "steam32": to_steam32(sid), "pos": int(pos)})
-                except Exception:
-                    st.warning(f"Invalid Steam ID for {name}")
-        players_for_scout = temp_players
-    else:
-        players_for_scout = players_meta
+      if loaded["mode"] == "rd2l":
+          if not players_meta:
+              st.warning("Could not resolve any Steam IDs from RD2L roster links. Use Manual mode or enter players below.")
+              players_for_scout = []
+          else:
+              st.success("RD2L roster auto-filled ✅  (set positions below)")
+              st.markdown("### Confirm positions (required for role-specific STRATZ)")
+              temp_players = []
+              for i, p in enumerate(players_meta[:5]):  # RD2L teams are 5; slice for safety
+                  c1, c2, c3 = st.columns([2, 2, 1])
+                  name = c1.text_input(f"ps_name_{i}", value=p["name"])
+                  sid  = c2.text_input(f"ps_sid_{i}", value=str(p["steam32"]))
+                  # show "—" when pos == 0
+                  pos_options = ["—", "1", "2", "3", "4", "5"]
+                  default_idx = 0 if int(p.get("pos", 0)) == 0 else int(p["pos"])
+                  pos = c3.selectbox(f"ps_pos_{i}", pos_options, index=default_idx)
+      
+                  if name and sid and pos != "—":
+                      try:
+                          temp_players.append({"name": name, "steam32": to_steam32(sid), "pos": int(pos)})
+                      except Exception:
+                          st.warning(f"Invalid Steam ID for {name}")
+      
+              players_for_scout = temp_players
+      else:
+          players_for_scout = players_meta
+
 
     if not players_for_scout:
         st.warning("No players available for Player Scout.")
@@ -893,3 +915,4 @@ with tabs[2]:
         st.dataframe(df_lastx, use_container_width=True)
         st.markdown("### Tournament")
         st.dataframe(df_tourn, use_container_width=True)
+

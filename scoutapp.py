@@ -738,7 +738,7 @@ if mode.startswith("Option 1"):
                 "team_name": team_name,
                 "tournament_label": tournament_label,
                 "roster_ids": roster_ids,
-                "players_meta": [],  # optional to fill later
+                "players_meta": players_meta,
                 "df": df,
                 "seq": seq_by_match,
                 "warnings": warn,
@@ -787,7 +787,7 @@ else:
                 "team_name": "Manual Team",
                 "tournament_label": tournament_label,
                 "roster_ids": roster_ids,
-                "players_meta": manual_meta,
+                "players_meta": manual_players,
                 "df": df,
                 "seq": seq_by_match,
                 "warnings": warn1 + warn2,
@@ -850,7 +850,7 @@ with tabs[2]:
     st.subheader("Player Scout")
 
     # Determine players list: manual has explicit; rd2l mode doesn't (yet).
-      if loaded["mode"] == "rd2l":
+    if loaded["mode"] == "rd2l":
           if not players_meta:
               st.warning("Could not resolve any Steam IDs from RD2L roster links. Use Manual mode or enter players below.")
               players_for_scout = []
@@ -915,4 +915,5 @@ with tabs[2]:
         st.dataframe(df_lastx, use_container_width=True)
         st.markdown("### Tournament")
         st.dataframe(df_tourn, use_container_width=True)
+
 

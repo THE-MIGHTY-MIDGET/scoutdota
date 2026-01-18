@@ -280,15 +280,6 @@ def stratz_fetch_matches(steam32: int, token: str, t_from=None, t_to=None, leagu
             return pd.DataFrame(gathered), ""
     
     return pd.DataFrame(), (last_err or "No matches returned")
-    """
-ScoutDota — Universal Draft Scout (PART 2 OF 4)
-- RD2L scraping
-- Match detection
-- Manual mode match finding
-- Draft filtering and parsing
-
-PASTE AFTER PART 1
-"""
 
 # ============================================================
 # RD2L SCRAPING
@@ -483,7 +474,6 @@ def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict
             </div>
             <div style="font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
         </div>
-        """
         
         if team == our_side_idx:
             our_cards.append(card)
@@ -494,16 +484,6 @@ def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict
     opp_html = "<div style='white-space:nowrap;overflow-x:auto;padding-bottom:6px'>" + "".join(opp_cards) + "</div>"
     
     return our_html, opp_html
-        """
-    ScoutDota — Universal Draft Scout (PART 3 OF 4)
-    - Player scouting functions
-    - Rank detection
-    - Role filtering
-    - Hero aggregation
-    - OpenDota fallbacks
-
-PASTE AFTER PART 2
-"""
 
 # ============================================================
 # PLAYER SCOUT
@@ -916,4 +896,5 @@ if "data" in st.session_state:
 
 else:
     st.info("👆 Configure settings in the sidebar and click a Load button to begin.")
+
 

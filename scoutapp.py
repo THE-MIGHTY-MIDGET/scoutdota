@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 ScoutDota — Universal Draft Scout
-Complete version with proper styling and all features
+Fixed version with proper error handling and draft rendering
 """
 
 import re
@@ -23,7 +23,7 @@ from PIL import Image
 # CONSTANTS
 # ============================================================
 
-APP_VERSION = "v3-complete"
+APP_VERSION = "v3-fixed"
 USER_AGENT = f"scoutdota/{APP_VERSION}"
 OPENDOTA_BASE = "https://api.opendota.com/api"
 STRATZ_GQL = "https://api.stratz.com/graphql"
@@ -35,7 +35,7 @@ _LAST_GQL_CALL = 0.0
 _IMG_CACHE: Dict[int, bytes] = {}
 
 # ============================================================
-# CUSTOM CSS
+# CUSTOM CSS - Fixed for Streamlit compatibility
 # ============================================================
 
 CUSTOM_CSS = """
@@ -80,62 +80,9 @@ CUSTOM_CSS = """
         border-radius: 4px;
     }
     
-    /* Success/Error messages */
-    .stSuccess {
-        background-color: #1a472a;
-        color: #5ff490;
-    }
-    
-    .stError {
-        background-color: #471a1a;
-        color: #ff5f5f;
-    }
-    
-    .stWarning {
-        background-color: #47471a;
-        color: #f4d75f;
-    }
-    
     /* Headers */
     h1, h2, h3 {
         color: #ffffff;
-    }
-    
-    /* Draft cards */
-    .draft-card {
-        display: inline-block;
-        background: #1a1d29;
-        border: 1px solid #3d3d3d;
-        border-radius: 8px;
-        padding: 8px;
-        margin: 4px;
-        text-align: center;
-        vertical-align: top;
-    }
-    
-    .draft-label {
-        font-size: 10px;
-        color: #888;
-        margin-bottom: 4px;
-    }
-    
-    .draft-pick {
-        border-color: #4caf50;
-    }
-    
-    .draft-ban {
-        border-color: #666;
-        opacity: 0.6;
-    }
-    
-    .hero-name {
-        font-size: 12px;
-        color: #fff;
-        margin-top: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 120px;
     }
 </style>
 """
@@ -516,7 +463,7 @@ def filter_matches_with_drafts(match_ids: List[int], roster_ids: Set[int], max_m
     return df, drafts
 
 # ============================================================
-# DRAFT RENDERING
+# DRAFT RENDERING - FIXED VERSION using Streamlit components
 # ============================================================
 
 def hero_name(hero_id: Optional[int], heroes: Dict[int, Dict[str, str]]) -> str:
@@ -524,64 +471,54 @@ def hero_name(hero_id: Optional[int], heroes: Dict[int, Dict[str, str]]) -> str:
         return ""
     return heroes.get(hero_id, {}).get("name", f"id{hero_id}")
 
-def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict[str, str]], show_portraits: bool = True) -> Tuple[str, str]:
-    our_cards = []
-    opp_cards = []
-    pick_n = 0
-    ban_n = 0
+def render_draft_streamlit(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict[str, str]], show_portraits: bool = True):
+    """Render draft using native Streamlit components instead of HTML"""
+    our_picks = []
+    our_bans = []
+    opp_picks = []
+    opp_bans = []
     
     for x in sorted(seq, key=lambda y: y.get("order", 0)):
         hero_id = x.get("hero_id")
         is_pick = x.get("is_pick")
         team = x.get("team")
-        
-        if is_pick:
-            pick_n += 1
-            label = f"PICK {pick_n}"
-        else:
-            ban_n += 1
-            label = f"BAN {ban_n}"
-        
-        img_uri = ""
-        if show_portraits and hero_id:
-            img_uri = hero_img_data_uri(hero_id, heroes)
-        
         name = hero_name(hero_id, heroes)
-        grayscale = "" if is_pick else "filter:grayscale(100%);"
-        card_class = "draft-pick" if is_pick else "draft-ban"
         
-        cross = ""
-        if not is_pick:
-            cross = (
-                "<svg width='120' height='65' style='position:absolute;top:0;left:0'>"
-                "<line x1='5' y1='5' x2='115' y2='60' stroke='#666' stroke-width='3'/>"
-                "<line x1='115' y1='5' x2='5' y2='60' stroke='#666' stroke-width='3'/>"
-                "</svg>"
-            )
-        
-        card = f"""
-        <div class="draft-card {card_class}">
-            <div class="draft-label">{label}</div>
-            <div style="position:relative;width:120px;height:65px;margin:auto">
-                <img src="{img_uri}" style="width:120px;height:65px;{grayscale}" alt="{name}">
-                {cross}
-            </div>
-            <div class="hero-name">{name}</div>
-        </div>
-        """
+        entry = {"hero_id": hero_id, "name": name, "order": x.get("order", 0)}
         
         if team == our_side_idx:
-            our_cards.append(card)
+            if is_pick:
+                our_picks.append(entry)
+            else:
+                our_bans.append(entry)
         else:
-            opp_cards.append(card)
+            if is_pick:
+                opp_picks.append(entry)
+            else:
+                opp_bans.append(entry)
     
-    our_html = "<div style='white-space:nowrap;overflow-x:auto;padding:10px 0'>" + "".join(our_cards) + "</div>"
-    opp_html = "<div style='white-space:nowrap;overflow-x:auto;padding:10px 0'>" + "".join(opp_cards) + "</div>"
-    
-    return our_html, opp_html
+    return our_picks, our_bans, opp_picks, opp_bans
+
+def display_hero_card(hero_id: int, name: str, heroes: dict, is_ban: bool = False, show_portraits: bool = True):
+    """Display a single hero card using Streamlit components"""
+    if show_portraits and hero_id:
+        img_bytes = get_hero_image(hero_id, heroes)
+        if img_bytes:
+            try:
+                img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                if is_ban:
+                    # Convert to grayscale for bans
+                    img = img.convert("L").convert("RGB")
+                st.image(img, width=100, caption=name)
+            except:
+                st.write(f"{'~~' if is_ban else ''}{name}{'~~' if is_ban else ''}")
+        else:
+            st.write(f"{'~~' if is_ban else ''}{name}{'~~' if is_ban else ''}")
+    else:
+        st.write(f"{'~~' if is_ban else ''}{name}{'~~' if is_ban else ''}")
 
 # ============================================================
-# PLAYER SCOUT
+# PLAYER SCOUT - FIXED VERSION
 # ============================================================
 
 def rank_label(steam32: int) -> str:
@@ -605,10 +542,10 @@ def role_mask(df: pd.DataFrame, pos: int, any_role: bool) -> pd.Series:
     
     mask = pd.Series([False] * len(df), index=df.index)
     
-    if "position" in df and df["position"].notna().any():
+    if "position" in df.columns and df["position"].notna().any():
         mask |= (df["position"] == pos)
     
-    if "role" in df and df["role"].astype(str).str.len().gt(0).any():
+    if "role" in df.columns and df["role"].astype(str).str.len().gt(0).any():
         R = df["role"].astype(str).str.upper()
         is_sup = (R == "SUPPORT") | (R == "2")
         is_core = (R == "CORE") | (R == "1")
@@ -619,11 +556,30 @@ def role_mask(df: pd.DataFrame, pos: int, any_role: bool) -> pd.Series:
     
     return mask
 
-def aggregate_heroes(df: pd.DataFrame, heroes, topn: int) -> List[str]:
-    if df.empty or "hero_id" not in df:
+def aggregate_heroes(df: pd.DataFrame, heroes: dict, topn: int, win_col: str = "is_victory") -> List[str]:
+    """
+    Aggregate heroes with flexible win column name handling.
+    FIX: Now handles both 'is_victory' and 'win' column names.
+    """
+    if df.empty or "hero_id" not in df.columns:
         return []
     
-    g = df.groupby("hero_id", dropna=True)["is_victory"]
+    # Handle different column names for win status
+    actual_win_col = None
+    for col in [win_col, "is_victory", "win", "radiant_win"]:
+        if col in df.columns:
+            actual_win_col = col
+            break
+    
+    if actual_win_col is None:
+        # No win column found, just count games
+        g = df.groupby("hero_id", dropna=True).size()
+        out = []
+        for hid in g.sort_values(ascending=False).head(topn).index:
+            out.append(f"{hero_name(hid, heroes)} ({g[hid]} games)")
+        return out
+    
+    g = df.groupby("hero_id", dropna=True)[actual_win_col]
     games = g.count().astype(int)
     wins = g.sum().astype(int)
     
@@ -634,6 +590,7 @@ def aggregate_heroes(df: pd.DataFrame, heroes, topn: int) -> List[str]:
     return out
 
 def od_last_months_fallback(steam32: int, months: int, heroes: dict, topn: int) -> List[str]:
+    """OpenDota fallback for last X months - FIXED to properly create is_victory"""
     days = 30 * months
     try:
         ms = http_get(f"{OPENDOTA_BASE}/players/{steam32}/matches", params={"date": days}).json()
@@ -644,19 +601,22 @@ def od_last_months_fallback(steam32: int, months: int, heroes: dict, topn: int) 
         if df.empty or "hero_id" not in df.columns:
             return []
         
-        if "radiant_win" not in df:
+        # FIX: Properly compute victory status
+        if "radiant_win" not in df.columns:
             df["radiant_win"] = False
-        if "player_slot" not in df:
+        if "player_slot" not in df.columns:
             df["player_slot"] = 0
         
-        you_won = (((df["radiant_win"]) & (df["player_slot"] < 128)) | ((~df["radiant_win"]) & (df["player_slot"] >= 128)))
-        df["is_victory"] = you_won
+        # Calculate if player won
+        radiant_side = df["player_slot"] < 128
+        df["is_victory"] = (radiant_side & df["radiant_win"]) | (~radiant_side & ~df["radiant_win"])
         
-        return aggregate_heroes(df, heroes, topn)
-    except:
+        return aggregate_heroes(df, heroes, topn, "is_victory")
+    except Exception as e:
         return []
 
 def od_league_fallback(steam32: int, leagues: List[int], heroes: dict, topn: int) -> List[str]:
+    """OpenDota fallback for tournament matches - FIXED"""
     rows = []
     if not leagues:
         return []
@@ -675,17 +635,22 @@ def od_league_fallback(steam32: int, leagues: List[int], heroes: dict, topn: int
     if df.empty or "hero_id" not in df.columns:
         return []
     
-    if "radiant_win" not in df:
+    # FIX: Properly compute victory status
+    if "radiant_win" not in df.columns:
         df["radiant_win"] = False
-    if "player_slot" not in df:
+    if "player_slot" not in df.columns:
         df["player_slot"] = 0
     
-    you_won = (((df["radiant_win"]) & (df["player_slot"] < 128)) | ((~df["radiant_win"]) & (df["player_slot"] >= 128)))
-    df["is_victory"] = you_won
+    radiant_side = df["player_slot"] < 128
+    df["is_victory"] = (radiant_side & df["radiant_win"]) | (~radiant_side & ~df["radiant_win"])
     
-    return aggregate_heroes(df, heroes, topn)
+    return aggregate_heroes(df, heroes, topn, "is_victory")
 
 def player_scout(players: List[dict], topn: int, months: int, leagues: List[int], stratz_token: str, any_role: bool = False):
+    """
+    Scout players for hero pools.
+    FIXED: Better error handling and column name consistency.
+    """
     heroes = od_heroes_map()
     results = {
         "overall": [],
@@ -702,6 +667,8 @@ def player_scout(players: List[dict], topn: int, months: int, leagues: List[int]
     t_to = int(now.timestamp())
     t_from = int((now - timedelta(days=30 * months)).timestamp())
     
+    has_stratz_token = stratz_token and stratz_token.strip() and stratz_token.strip() != "PASTE_YOUR_STRATZ_TOKEN_HERE"
+    
     for p in players:
         s32 = p["steam32"]
         pos = p.get("pos", 0)
@@ -711,56 +678,100 @@ def player_scout(players: List[dict], topn: int, months: int, leagues: List[int]
         # Overall (OpenDota)
         try:
             df_overall = od_player_heroes(s32)
-            results["overall"].append(aggregate_heroes(df_overall, heroes, topn))
-            
-            total = df_overall["games"].sum() if "games" in df_overall and not df_overall.empty else 0
-            wins = df_overall["win"].sum() if "win" in df_overall and not df_overall.empty else 0
-            wr = int(round(100 * wins / max(1, total)))
-            results["stats_overall"].append(f"{total} games, {wr}% WR")
+            if not df_overall.empty and "games" in df_overall.columns:
+                # Add is_victory for consistency (using win column)
+                if "win" in df_overall.columns and "games" in df_overall.columns:
+                    # This endpoint returns aggregated data, so we need to handle differently
+                    total = int(df_overall["games"].sum())
+                    wins = int(df_overall["win"].sum())
+                    wr = int(round(100 * wins / max(1, total)))
+                    results["stats_overall"].append(f"{total} games, {wr}% WR")
+                    
+                    # Aggregate heroes for this endpoint
+                    df_overall["is_victory"] = df_overall["win"]  # For aggregation
+                    results["overall"].append(aggregate_heroes_from_hero_stats(df_overall, heroes, topn))
+                else:
+                    results["overall"].append([])
+                    results["stats_overall"].append("N/A")
+            else:
+                results["overall"].append([])
+                results["stats_overall"].append("N/A")
         except Exception as e:
             results["overall"].append([])
             results["stats_overall"].append("N/A")
             warnings.append(f"Overall failed for {p['name']}: {e}")
         
         # Last X months
-        try:
-            df, err = stratz_fetch_matches(s32, stratz_token, t_from, t_to, [], want=200)
-            if df.empty:
-                raise RuntimeError(err or "STRATZ returned no matches")
-            mask = role_mask(df, pos, any_role)
-            df_filtered = df[mask]
-            results["lastx"].append(aggregate_heroes(df_filtered, heroes, topn))
-            
-            total = len(df_filtered)
-            wins = df_filtered["is_victory"].sum() if "is_victory" in df_filtered else 0
-            wr = int(round(100 * wins / max(1, total)))
-            results["stats_lastx"].append(f"{total} games, {wr}% WR")
-        except Exception as e:
+        if has_stratz_token:
+            try:
+                df, err = stratz_fetch_matches(s32, stratz_token, t_from, t_to, [], want=200)
+                if df.empty:
+                    raise RuntimeError(err or "STRATZ returned no matches")
+                mask = role_mask(df, pos, any_role)
+                df_filtered = df[mask]
+                results["lastx"].append(aggregate_heroes(df_filtered, heroes, topn, "is_victory"))
+                
+                total = len(df_filtered)
+                wins = int(df_filtered["is_victory"].sum()) if "is_victory" in df_filtered.columns else 0
+                wr = int(round(100 * wins / max(1, total)))
+                results["stats_lastx"].append(f"{total} games, {wr}% WR")
+            except Exception as e:
+                # Fallback to OpenDota
+                results["lastx"].append(od_last_months_fallback(s32, months, heroes, topn))
+                results["stats_lastx"].append("OpenDota (fallback)")
+                warnings.append(f"Last {months}mo STRATZ failed for {p['name']}: {e}")
+        else:
+            # No STRATZ token, use OpenDota directly
             results["lastx"].append(od_last_months_fallback(s32, months, heroes, topn))
             results["stats_lastx"].append("OpenDota (fallback)")
-            warnings.append(f"Last {months}mo STRATZ failed for {p['name']}: {e}")
         
         # Tournament
-        try:
-            df, err = stratz_fetch_matches(s32, stratz_token, None, None, leagues, want=200)
-            if df.empty:
-                raise RuntimeError(err or "STRATZ returned no league matches")
-            mask = role_mask(df, pos, any_role)
-            df_filtered = df[mask]
-            results["tourn"].append(aggregate_heroes(df_filtered, heroes, topn))
-            
-            total = len(df_filtered)
-            wins = df_filtered["is_victory"].sum() if "is_victory" in df_filtered else 0
-            wr = int(round(100 * wins / max(1, total)))
-            results["stats_tourn"].append(f"{total} games, {wr}% WR")
-        except Exception as e:
+        if has_stratz_token:
+            try:
+                df, err = stratz_fetch_matches(s32, stratz_token, None, None, leagues, want=200)
+                if df.empty:
+                    raise RuntimeError(err or "STRATZ returned no league matches")
+                mask = role_mask(df, pos, any_role)
+                df_filtered = df[mask]
+                results["tourn"].append(aggregate_heroes(df_filtered, heroes, topn, "is_victory"))
+                
+                total = len(df_filtered)
+                wins = int(df_filtered["is_victory"].sum()) if "is_victory" in df_filtered.columns else 0
+                wr = int(round(100 * wins / max(1, total)))
+                results["stats_tourn"].append(f"{total} games, {wr}% WR")
+            except Exception as e:
+                results["tourn"].append(od_league_fallback(s32, leagues, heroes, topn))
+                results["stats_tourn"].append("OpenDota (fallback)")
+                warnings.append(f"Tournament STRATZ failed for {p['name']}: {e}")
+        else:
             results["tourn"].append(od_league_fallback(s32, leagues, heroes, topn))
             results["stats_tourn"].append("OpenDota (fallback)")
-            warnings.append(f"Tournament STRATZ failed for {p['name']}: {e}")
         
         time.sleep(0.4)
     
     return results, warnings
+
+def aggregate_heroes_from_hero_stats(df: pd.DataFrame, heroes: dict, topn: int) -> List[str]:
+    """
+    Aggregate from OpenDota /players/{id}/heroes endpoint which has different structure.
+    This endpoint returns: hero_id, games, win, with_games, with_win, against_games, against_win
+    """
+    if df.empty or "hero_id" not in df.columns:
+        return []
+    
+    out = []
+    # Sort by games played
+    df_sorted = df.sort_values("games", ascending=False).head(topn)
+    
+    for _, row in df_sorted.iterrows():
+        hid = row.get("hero_id")
+        games = int(row.get("games", 0))
+        wins = int(row.get("win", 0))
+        if games > 0:
+            pct = int(round(100 * wins / games))
+            out.append(f"{hero_name(hid, heroes)} ({games} – {pct}%)")
+    
+    return out
 
 # ============================================================
 # UI
@@ -925,7 +936,7 @@ if "data" in st.session_state:
                 })
             st.dataframe(pd.DataFrame(player_data), use_container_width=True, hide_index=True)
     
-    # TAB 2: Drafts
+    # TAB 2: Drafts - FIXED VERSION using Streamlit components
     with tabs[1]:
         if df.empty:
             st.info("No draft data available.")
@@ -934,12 +945,51 @@ if "data" in st.session_state:
                 mid = r["match_id"]
                 result_emoji = "✅" if r["win"] else "❌"
                 result_text = "Win" if r["win"] else "Loss"
+                
                 with st.expander(f"{result_emoji} Match {mid} — {r['side']} — {result_text} — {r['start'][:10]}"):
-                    our, opp = render_draft_html(drafts[mid], r["side_idx"], heroes, show_portraits)
-                    st.markdown(f"**Our Draft ({r['side']})**", unsafe_allow_html=True)
-                    st.markdown(our, unsafe_allow_html=True)
-                    st.markdown("**Opponent Draft**", unsafe_allow_html=True)
-                    st.markdown(opp, unsafe_allow_html=True)
+                    our_picks, our_bans, opp_picks, opp_bans = render_draft_streamlit(
+                        drafts[mid], r["side_idx"], heroes, show_portraits
+                    )
+                    
+                    # Our Draft
+                    st.markdown(f"**Our Draft ({r['side']})**")
+                    
+                    if our_picks:
+                        st.write("**Picks:**")
+                        cols = st.columns(min(len(our_picks), 5))
+                        for i, pick in enumerate(our_picks):
+                            with cols[i % 5]:
+                                display_hero_card(pick["hero_id"], pick["name"], heroes, 
+                                                is_ban=False, show_portraits=show_portraits)
+                    
+                    if our_bans:
+                        st.write("**Bans:**")
+                        cols = st.columns(min(len(our_bans), 7))
+                        for i, ban in enumerate(our_bans):
+                            with cols[i % 7]:
+                                display_hero_card(ban["hero_id"], ban["name"], heroes, 
+                                                is_ban=True, show_portraits=show_portraits)
+                    
+                    st.divider()
+                    
+                    # Opponent Draft
+                    st.markdown("**Opponent Draft**")
+                    
+                    if opp_picks:
+                        st.write("**Picks:**")
+                        cols = st.columns(min(len(opp_picks), 5))
+                        for i, pick in enumerate(opp_picks):
+                            with cols[i % 5]:
+                                display_hero_card(pick["hero_id"], pick["name"], heroes, 
+                                                is_ban=False, show_portraits=show_portraits)
+                    
+                    if opp_bans:
+                        st.write("**Bans:**")
+                        cols = st.columns(min(len(opp_bans), 7))
+                        for i, ban in enumerate(opp_bans):
+                            with cols[i % 7]:
+                                display_hero_card(ban["hero_id"], ban["name"], heroes, 
+                                                is_ban=True, show_portraits=show_portraits)
     
     # TAB 3: Player Scout
     with tabs[2]:
@@ -950,7 +1000,14 @@ if "data" in st.session_state:
                 scout, warn = player_scout(players, topN, months, leagues, stratz_token, any_role)
                 
                 if warn:
-                    st.warning(" | ".join(set(warn)))
+                    # Group warnings by type to reduce noise
+                    stratz_warnings = [w for w in warn if "STRATZ" in w]
+                    other_warnings = [w for w in warn if "STRATZ" not in w]
+                    
+                    if stratz_warnings:
+                        st.warning(f"⚠️ STRATZ API unavailable for some players - using OpenDota fallback")
+                    if other_warnings:
+                        st.warning(" | ".join(set(other_warnings)))
                 
                 # Build headers
                 headers = ["Category"] + [f"{p['name']} (P{p.get('pos', '?')}) — {rank}" 
@@ -958,10 +1015,7 @@ if "data" in st.session_state:
                 
                 def build_table(title: str, data_cols: List[List[str]], stats_cols: List[str] = None):
                     rows = []
-                    rows.append([f"**{title}**"] + [""] * len(players))
-                    
-                    if stats_cols:
-                        rows.append(["Stats"] + stats_cols)
+                    rows.append([f"**{title}**"] + (stats_cols if stats_cols else [""] * len(players)))
                     
                     for i in range(topN):
                         rows.append([""] + [(col[i] if i < len(col) else "") for col in data_cols])

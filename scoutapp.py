@@ -1,22 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 """
-ScoutDota — Universal Draft Scout (PART 1 OF 4)
-- Imports
-- Constants  
-- HTTP helpers
-- Steam utils
-- OpenDota API
-- Hero portraits
-- STRATZ API
-
-PASTE ALL 4 PARTS BEFORE RUNNING
+ScoutDota — Universal Draft Scout
+Complete version with proper styling and all features
 """
-
-# ============================================================
-# IMPORTS
-# ============================================================
 
 import re
 import io
@@ -36,7 +23,7 @@ from PIL import Image
 # CONSTANTS
 # ============================================================
 
-APP_VERSION = "v3-unified"
+APP_VERSION = "v3-complete"
 USER_AGENT = f"scoutdota/{APP_VERSION}"
 OPENDOTA_BASE = "https://api.opendota.com/api"
 STRATZ_GQL = "https://api.stratz.com/graphql"
@@ -46,6 +33,112 @@ MAX_TAKE = 100
 MIN_INTERVAL = 1.0
 _LAST_GQL_CALL = 0.0
 _IMG_CACHE: Dict[int, bytes] = {}
+
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
+CUSTOM_CSS = """
+<style>
+    /* Dark theme matching original */
+    .stApp {
+        background-color: #1a1d29;
+    }
+    
+    /* Tabs styling */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+        background-color: #0e1117;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #262730;
+        color: #ffffff;
+        border-radius: 4px 4px 0 0;
+        padding: 10px 20px;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #ff4b4b;
+    }
+    
+    /* Metrics */
+    [data-testid="stMetricValue"] {
+        font-size: 28px;
+        color: #ffffff;
+    }
+    
+    /* Dataframes */
+    .stDataFrame {
+        background-color: #262730;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background-color: #262730;
+        color: #ffffff;
+        border-radius: 4px;
+    }
+    
+    /* Success/Error messages */
+    .stSuccess {
+        background-color: #1a472a;
+        color: #5ff490;
+    }
+    
+    .stError {
+        background-color: #471a1a;
+        color: #ff5f5f;
+    }
+    
+    .stWarning {
+        background-color: #47471a;
+        color: #f4d75f;
+    }
+    
+    /* Headers */
+    h1, h2, h3 {
+        color: #ffffff;
+    }
+    
+    /* Draft cards */
+    .draft-card {
+        display: inline-block;
+        background: #1a1d29;
+        border: 1px solid #3d3d3d;
+        border-radius: 8px;
+        padding: 8px;
+        margin: 4px;
+        text-align: center;
+        vertical-align: top;
+    }
+    
+    .draft-label {
+        font-size: 10px;
+        color: #888;
+        margin-bottom: 4px;
+    }
+    
+    .draft-pick {
+        border-color: #4caf50;
+    }
+    
+    .draft-ban {
+        border-color: #666;
+        opacity: 0.6;
+    }
+    
+    .hero-name {
+        font-size: 12px;
+        color: #fff;
+        margin-top: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
+</style>
+"""
 
 # ============================================================
 # HTTP HELPERS
@@ -455,33 +548,35 @@ def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict
         
         name = hero_name(hero_id, heroes)
         grayscale = "" if is_pick else "filter:grayscale(100%);"
+        card_class = "draft-pick" if is_pick else "draft-ban"
         
         cross = ""
         if not is_pick:
             cross = (
                 "<svg width='120' height='65' style='position:absolute;top:0;left:0'>"
-                "<line x1='5' y1='5' x2='115' y2='60' stroke='gray' stroke-width='4'/>"
-                "<line x1='115' y1='5' x2='5' y2='60' stroke='gray' stroke-width='4'/>"
+                "<line x1='5' y1='5' x2='115' y2='60' stroke='#666' stroke-width='3'/>"
+                "<line x1='115' y1='5' x2='5' y2='60' stroke='#666' stroke-width='3'/>"
                 "</svg>"
             )
         
         card = f"""
-        <div style="display:inline-block;background:#111;border:1px solid #555;border-radius:8px;padding:6px;margin-right:8px;width:130px;text-align:center;position:relative;">
-            <div style="font-size:11px;color:#aaa;margin-bottom:4px">{label}</div>
+        <div class="draft-card {card_class}">
+            <div class="draft-label">{label}</div>
             <div style="position:relative;width:120px;height:65px;margin:auto">
-                <img src="{img_uri}" style="width:120px;height:65px;{grayscale}">
+                <img src="{img_uri}" style="width:120px;height:65px;{grayscale}" alt="{name}">
                 {cross}
             </div>
-            <div style="font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-        </div>"""
+            <div class="hero-name">{name}</div>
+        </div>
+        """
         
         if team == our_side_idx:
             our_cards.append(card)
         else:
             opp_cards.append(card)
     
-    our_html = "<div style='white-space:nowrap;overflow-x:auto;padding-bottom:6px'>" + "".join(our_cards) + "</div>"
-    opp_html = "<div style='white-space:nowrap;overflow-x:auto;padding-bottom:6px'>" + "".join(opp_cards) + "</div>"
+    our_html = "<div style='white-space:nowrap;overflow-x:auto;padding:10px 0'>" + "".join(our_cards) + "</div>"
+    opp_html = "<div style='white-space:nowrap;overflow-x:auto;padding:10px 0'>" + "".join(opp_cards) + "</div>"
     
     return our_html, opp_html
 
@@ -618,8 +713,8 @@ def player_scout(players: List[dict], topn: int, months: int, leagues: List[int]
             df_overall = od_player_heroes(s32)
             results["overall"].append(aggregate_heroes(df_overall, heroes, topn))
             
-            total = df_overall["games"].sum() if "games" in df_overall else 0
-            wins = df_overall["win"].sum() if "win" in df_overall else 0
+            total = df_overall["games"].sum() if "games" in df_overall and not df_overall.empty else 0
+            wins = df_overall["win"].sum() if "win" in df_overall and not df_overall.empty else 0
             wr = int(round(100 * wins / max(1, total)))
             results["stats_overall"].append(f"{total} games, {wr}% WR")
         except Exception as e:
@@ -672,6 +767,10 @@ def player_scout(players: List[dict], topn: int, months: int, leagues: List[int]
 # ============================================================
 
 st.set_page_config("ScoutDota", layout="wide")
+
+# Apply custom CSS
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+
 st.title("ScoutDota — Universal Draft Scout")
 
 with st.sidebar:
@@ -833,10 +932,11 @@ if "data" in st.session_state:
         else:
             for _, r in df.iterrows():
                 mid = r["match_id"]
-                result = "✅ Win" if r["win"] else "❌ Loss"
-                with st.expander(f"Match {mid} — {r['side']} — {result} — {r['start'][:10]}"):
+                result_emoji = "✅" if r["win"] else "❌"
+                result_text = "Win" if r["win"] else "Loss"
+                with st.expander(f"{result_emoji} Match {mid} — {r['side']} — {result_text} — {r['start'][:10]}"):
                     our, opp = render_draft_html(drafts[mid], r["side_idx"], heroes, show_portraits)
-                    st.markdown("**Our Draft**", unsafe_allow_html=True)
+                    st.markdown(f"**Our Draft ({r['side']})**", unsafe_allow_html=True)
                     st.markdown(our, unsafe_allow_html=True)
                     st.markdown("**Opponent Draft**", unsafe_allow_html=True)
                     st.markdown(opp, unsafe_allow_html=True)
@@ -887,6 +987,3 @@ if "data" in st.session_state:
 
 else:
     st.info("👆 Configure settings in the sidebar and click a Load button to begin.")
-
-
-

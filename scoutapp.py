@@ -666,15 +666,6 @@ def player_scout(players: List[dict], topn: int, months: int, leagues: List[int]
         time.sleep(0.4)
     
     return results, warnings
-    """
-ScoutDota — Universal Draft Scout (PART 4 OF 4)
-- Streamlit UI
-- Mode selection
-- Data loading
-- Tabs rendering
-
-PASTE AFTER PART 3, THEN RUN THE APP
-"""
 
 # ============================================================
 # UI
@@ -896,5 +887,6 @@ if "data" in st.session_state:
 
 else:
     st.info("👆 Configure settings in the sidebar and click a Load button to begin.")
+
 
 

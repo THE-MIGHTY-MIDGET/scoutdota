@@ -495,12 +495,12 @@ def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict
     
     return our_html, opp_html
         """
-ScoutDota — Universal Draft Scout (PART 3 OF 4)
-- Player scouting functions
-- Rank detection
-- Role filtering
-- Hero aggregation
-- OpenDota fallbacks
+    ScoutDota — Universal Draft Scout (PART 3 OF 4)
+    - Player scouting functions
+    - Rank detection
+    - Role filtering
+    - Hero aggregation
+    - OpenDota fallbacks
 
 PASTE AFTER PART 2
 """
@@ -916,3 +916,4 @@ if "data" in st.session_state:
 
 else:
     st.info("👆 Configure settings in the sidebar and click a Load button to begin.")
+

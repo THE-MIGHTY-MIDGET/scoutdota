@@ -473,7 +473,7 @@ def render_draft_html(seq: List[dict], our_side_idx: int, heroes: Dict[int, Dict
                 {cross}
             </div>
             <div style="font-size:12px;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{name}</div>
-        </div>
+        </div>"""
         
         if team == our_side_idx:
             our_cards.append(card)
